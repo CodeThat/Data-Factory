@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -9,9 +8,6 @@ import dotenv
 import time
 
 dotenv.load_dotenv()
-
-# Global variable to store the index build timestamp
-index_build_timestamp = None
 
 
 def process_llm_response(llm_answer):
@@ -48,11 +44,9 @@ def track_index_build_progress():
             progress = int(output.split(":")[1].strip())
             # Update the progress bar
             st.progress(progress)
-        elif output.startswith("Index build timestamp:"):
-            timestamp = output.split(":")[1].strip()
-            # Update the index build timestamp
-            global index_build_timestamp
-            index_build_timestamp = timestamp
+        elif output.startswith("Error:"):
+            # Print the error message
+            st.error(output.split(":", 1)[1].strip())
 
     # Wait for the process to finish
     process.communicate()
@@ -63,20 +57,13 @@ def main():
 
     # Create sidebar column
     with st.sidebar:
-
         # Button for index creation
         if st.button("Create Index"):
             try:
                 st.write("Index creation started.")
-                # Update the index build timestamp
-                global index_build_timestamp
-                index_build_timestamp = None
                 with st.spinner("Building index..."):
                     track_index_build_progress()
-                if index_build_timestamp:
-                    st.success("Index created successfully.")
-                else:
-                    st.error("Error occurred during index creation.")
+                st.success("Index created successfully.")
             except subprocess.CalledProcessError:
                 st.error("Error occurred during index creation.")
 
@@ -84,10 +71,6 @@ def main():
         directory_path = st.text_input("Enter the directory path to track:")
         if st.button("Start Tracking"):
             track_directory_changes(directory_path)
-
-    # Display the index build timestamp
-    if index_build_timestamp:
-        st.write("Index build timestamp:", index_build_timestamp)
 
     # Initialize embedding
     embedding = initialize_embedding()
@@ -103,9 +86,8 @@ def main():
                                            return_source_documents=True)
 
     # Prompt for user input
-    query = st.text_input("You: ")
-    if st.button("Send"):
-        st.text("ChatGPT: " + query)  # Echo user input
+    query = st.text_input("Enter your question:")
+    if st.button("Ask"):
         llm_response = qa_chain(query)
         process_llm_response(llm_response)
 
